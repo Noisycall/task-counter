@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <title>task-counter</title>
   </head>
   <body>
     <script type="module" src="/src/main.ts"></script>
@@ -19,6 +17,40 @@
       </div>
       <div id="add-task">
         <h3>Add task</h3>
+        <form name="add-task-form" id="add-task-form">
+          <div>
+            <label for="add-task-description">Short Description</label>
+            <input
+              id="add-task-description"
+              name="description"
+              type="text"
+              maxlength="50"
+            />
+          </div>
+          <div>
+            <label for="add-task-criteria">Criteria for completion</label>
+            <input
+              type="text"
+              name="criteria"
+              id="add-task-criteria"
+              maxlength="50"
+            />
+          </div>
+          <div>
+            <label for="add-task-points">Points</label>
+            <input type="number" name="points" id="add-task-points" />
+          </div>
+          <div>
+            <button
+              onclick="
+                event.preventDefault();
+                addTask(new FormData(document.getElementById('add-task-form')));
+              "
+            >
+              Add
+            </button>
+          </div>
+        </form>
       </div>
       <div id="task-list"></div>
     </main>
