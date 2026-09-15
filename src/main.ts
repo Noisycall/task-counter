@@ -5,22 +5,27 @@ import "./style.css";
 import { registerSW } from "virtual:pwa-register";
 registerSW({ immediate: true });
 
+//Names
+const TASK_STORE = "tasks";
+const POINTS_STORE = "points";
+const MAIN_POINTS_KEY = "main";
 const counterNumber = document.getElementById("counter-number")!;
 const setCounterDisplay = (val: number) => {
   counterNumber.innerText = String(val);
 };
+
 const setCounterNumber = (val: number) => {
   setCounterDisplay(val);
-  const tr = db.transaction("points", "readwrite");
-  const store = tr.objectStore("points");
-  store.put({ val: val, id: "main" });
+  const tr = db.transaction(POINTS_STORE, "readwrite");
+  const store = tr.objectStore(POINTS_STORE);
+  store.put({ val: val, id: MAIN_POINTS_KEY });
   tr.commit();
 };
 const getCounterNumber = async (): Promise<number> => {
-  const tr = db.transaction("points", "readonly");
-  const store = tr.objectStore("points");
+  const tr = db.transaction(POINTS_STORE, "readonly");
+  const store = tr.objectStore(POINTS_STORE);
   return new Promise((res) => {
-    const val = store.get("main");
+    const val = store.get(MAIN_POINTS_KEY);
     val.onsuccess = () => {
       res(val.result.val);
     };
@@ -80,8 +85,8 @@ const addTask = (taskData: FormData) => {
 //@ts-ignore
 window.addTask = addTask;
 const addTasksToIndexDB = (db: IDBDatabase, tasks: Array<Task>) => {
-  const transaction = db.transaction("tasks", "readwrite");
-  const store = transaction.objectStore("tasks");
+  const transaction = db.transaction(TASK_STORE, "readwrite");
+  const store = transaction.objectStore(TASK_STORE);
   tasks.forEach((task) => {
     store.put(task);
   });
@@ -103,29 +108,65 @@ const generateTaskList = (tasks: Array<Task>) => {
           <div class="points">
             <input type="number" value="${task.points}"/>
             <button class="point-button" onclick="changeCounter(${-task.points})">complete</button>
-            <button class="delete-button">delete</button>
+            <button class="delete-button" onclick="deleteTask(${task.id})">delete</button>
           </div>`;
     let elem = document.createElement("div");
     elem.innerHTML = node;
     taskList.append(elem.firstElementChild!);
   }
 };
+const getAllTasksFromDb = async (): Promise<Array<Task>> => {
+  const transaction = db.transaction(TASK_STORE, "readonly");
+  const store = transaction.objectStore(TASK_STORE);
+  return new Promise((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => {
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      reject(req.error);
+    };
+  });
+};
 
-//IndexDB
-// indexedDB.deleteDatabase("tasks");
+const deleteTask = async (id: number) => {
+  try {
+    await deleteTaskFromDb(id);
+    generateTaskList(await getAllTasksFromDb());
+  } catch (err) {
+    console.error("Failed to delete task", err);
+  }
+};
+//@ts-ignore
+window.deleteTask = deleteTask;
+
+const deleteTaskFromDb = async (id: number) => {
+  const transaction = db.transaction(TASK_STORE, "readwrite");
+  const store = transaction.objectStore(TASK_STORE);
+  return new Promise((resolve, reject) => {
+    const req = store.delete(id);
+    req.onsuccess = () => {
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      reject(req.error);
+    };
+  });
+};
+
 let db: IDBDatabase;
-const tasksDb = indexedDB.open("tasks", 1);
+const tasksDb = indexedDB.open(TASK_STORE, 1);
 tasksDb.onsuccess = () => {
   db = tasksDb.result;
-  if (db.objectStoreNames.contains("tasks")) {
-    const transaction = db.transaction(["tasks", "points"], "readonly");
-    const tasks = transaction.objectStore("tasks");
-    const points = transaction.objectStore("points");
+  if (db.objectStoreNames.contains(TASK_STORE)) {
+    const transaction = db.transaction([TASK_STORE, POINTS_STORE], "readonly");
+    const tasks = transaction.objectStore(TASK_STORE);
+    const points = transaction.objectStore(POINTS_STORE);
     const request = tasks.getAll();
     request.onsuccess = () => {
       generateTaskList(request.result);
     };
-    const pointsReq = points.get("main");
+    const pointsReq = points.get(MAIN_POINTS_KEY);
     pointsReq.onsuccess = () => {
       //@ts-ignore
       console.debug("Initial Val was:", pointsReq.result);
@@ -139,11 +180,11 @@ tasksDb.onsuccess = () => {
 tasksDb.onupgradeneeded = (ev) => {
   // @ts-ignore
   db = ev.target.result;
-  db.createObjectStore("tasks", { keyPath: "id", autoIncrement: true });
-  const st = db.createObjectStore("points", {
+  db.createObjectStore(TASK_STORE, { keyPath: "id", autoIncrement: true });
+  const st = db.createObjectStore(POINTS_STORE, {
     keyPath: "id",
   });
-  st.put({ val: 0, id: "main" });
+  st.put({ val: 0, id: MAIN_POINTS_KEY });
 
   console.debug("DB created v1", db);
 };
